@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="artifact-type" content="tool">
+  <meta name="design-style" content="carbon">
+  <title>Simulateur Système de Freinage PBL2 - Locomotive ONCF</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@1.43.0/dist/umd/lucide.min.js"></script>
+
+  <style>
+    :root {
+      color-scheme: light;
+      --background: #ffffff;
+      --surface-container-low: #f4f4f4;
+      --surface-container: #f4f4f4;
+      --surface-container-high: #e0e0e0;
+      --on-surface: #161616;
+      --on-surface-variant: #525252;
+      --outline: #8d8d8d;
+      --outline-variant: #e0e0e0;
+      --primary: #0f62fe;
+      --on-primary: #ffffff;
+      --primary-container: #d0e2ff;
+      --on-primary-container: #161616;
+      --secondary: #6f6f6f;
+      --tertiary: #198038;
+      --error: #da1e28;
+      --on-error: #ffffff;
+      --warning: #f1c21b;
+      --on-warning: #161616;
+      --air-cp: #da1e28;
+      --air-cg: #0f62fe;
+      --air-re: #198038;
+      --air-cf: #8a3ffc;
+      --air-sur: #ff832b;
+      --air-atm: #8d8d8d;
+
+      --font-headline: 'IBM Plex Sans', sans-serif;
+      --font-body: 'IBM Plex Sans', sans-serif;
+      --font-label: 'IBM Plex Mono', monospace;
+
+      --space-2xs: 0.25rem;
+      --space-xs: 0.5rem;
+      --space-sm: 0.75rem;
+      --space-md: 1rem;
+      --space-lg: 1.5rem;
+      --space-xl: 2rem;
+      --space-2xl: 3rem;
+
+      --rounded: 0.125rem;
+      --rounded-lg: 0.25rem;
+      --rounded-full: 0.75rem;
+
+      --shadow-1: 0 2px 6px rgb(0 0 0 / 0.1);
+      --shadow-2: 0 4px 12px rgb(0 0 0 / 0.12);
+      --rule: 1px solid var(--outline-variant);
+      --field-rule: 1px solid var(--outline);
+      --indicator: 2px solid var(--primary);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      min-width: 0;
+    }
+
+    html, body {
+      font-family: var(--font-body);
+      background-color: var(--surface-container-low);
+      color: var(--on-surface);
+      line-height: 1.5;
+      overflow-x: clip;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-header {
+      background-color: var(--on-surface);
+      color: #ffffff;
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 2px solid var(--primary);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .app-title-group h1 {
+      font-family: var(--font-headline);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+    }
+
+    .app-title-group p {
+      font-family: var(--font-label);
+      font-size: 0.75rem;
+      color: #c6c6c6;
+    }
+
+    .badge-tag {
+      font-family: var(--font-label);
+      font-size: 0.7rem;
+      padding: var(--space-2xs) var(--space-xs);
+      background-color: #393939;
+      color: #f4f4f4;
+      border-radius: var(--rounded);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2xs);
+    }
+
+    .badge-tag.active-alert {
+      background-color: var(--warning);
+      color: var(--on-warning);
+      font-weight: 600;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr) 360px;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      max-width: 1750px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 1300px) {
+      .main-layout {
+        grid-template-columns: 320px minmax(0, 1fr);
+      }
+      .panel-details-col {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background-color: var(--background);
+      border: var(--rule);
+      border-radius: var(--rounded);
+      padding: var(--space-md);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--on-surface);
+      padding-bottom: var(--space-xs);
+    }
+
+    .card-title {
+      font-family: var(--font-headline);
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+    }
+
+    .card-subtitle {
+      font-family: var(--font-label);
+      font-size: 0.75rem;
+      color: var(--on-surface-variant);
+    }
+
+    /* Gauges Dashboard */
+    .manometers-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-sm);
+    }
+
+    .gauge-card {
+      background: var(--surface-container-low);
+      border: var(--rule);
+      padding: var(--space-xs);
+      border-radius: var(--rounded);
+      text-align: center;
+      border-bottom: 3px solid var(--secondary);
+      position: relative;
+    }
+
+    .gauge-card.cp { border-bottom-color: var(--air-cp); }
+    .gauge-card.cg { border-bottom-color: var(--air-cg); }
+    .gauge-card.re { border-bottom-color: var(--air-re); }
+    .gauge-card.cf { border-bottom-color: var(--air-cf); }
+
+    .gauge-title {
+      font-family: var(--font-label);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--on-surface-variant);
+    }
+
+    .gauge-svg-wrap {
+      width: 100%;
+      height: 90px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .gauge-val {
+      font-family: var(--font-label);
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .gauge-unit {
+      font-size: 0.65rem;
+      color: var(--on-surface-variant);
+    }
+
+    /* Controller Panel */
+    .control-group-title {
+      font-family: var(--font-label);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-2xs);
+    }
+
+    .positions-selector {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2xs);
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: var(--space-2xs);
+    }
+
+    .pos-btn {
+      appearance: none;
+      border: 1px solid var(--outline-variant);
+      background-color: var(--background);
+      color: var(--on-surface);
+      padding: var(--space-xs) var(--space-sm);
+      text-align: left;
+      border-radius: var(--rounded);
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-xs);
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .pos-btn:hover {
+      background-color: var(--surface-container-high);
+    }
+
+    .pos-btn.active {
+      background-color: var(--primary-container);
+      border-color: var(--primary);
+      font-weight: 600;
+      border-left: 4px solid var(--primary);
+    }
+
+    .pos-btn .pos-num {
+      font-family: var(--font-label);
+      font-size: 0.7rem;
+      color: var(--on-surface-variant);
+      min-width: 20px;
+    }
+
+    .pos-btn.urgent {
+      border-color: rgba(218, 30, 40, 0.4);
+    }
+    .pos-btn.urgent.active {
+      background-color: #ffd7d9;
+      border-color: var(--error);
+      border-left-color: var(--error);
+    }
+
+    .pos-btn.secours {
+      border-color: rgba(255, 131, 43, 0.4);
+    }
+    .pos-btn.secours.active {
+      background-color: #ffe6cf;
+      border-color: var(--air-sur);
+      border-left-color: var(--air-sur);
+    }
+
+    /* Interactive Hardware Knobs */
+    .hardware-controls-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-xs);
+      margin-top: var(--space-xs);
+    }
+
+    .hw-btn {
+      appearance: none;
+      border: 1px solid var(--outline);
+      background: var(--surface-container-low);
+      color: var(--on-surface);
+      padding: var(--space-xs);
+      border-radius: var(--rounded);
+      font-family: var(--font-label);
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2xs);
+      text-align: center;
+    }
+
+    .hw-btn:hover {
+      background: var(--surface-container-high);
+    }
+
+    .hw-btn:active {
+      background: #c6c6c6;
+    }
+
+    .hw-btn.btn-emergency {
+      background: var(--error);
+      color: #ffffff;
+      border-color: var(--error);
+      font-weight: 700;
+    }
+
+    .hw-btn.btn-emergency:hover {
+      background: #ba1b23;
+    }
+
+    /* Diagram Canvas */
+    .diagram-container {
+      background: #ffffff;
+      border: var(--rule);
+      border-radius: var(--rounded);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .diagram-toolbar {
+      padding: var(--space-xs) var(--space-md);
+      background-color: var(--surface-container-low);
+      border-bottom: var(--rule);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .legend-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+      font-family: var(--font-label);
+      font-size: 0.68rem;
+    }
+
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2xs);
+      padding: 2px 6px;
+      border-radius: var(--rounded);
+      background: #ffffff;
+      border: 1px solid var(--outline-variant);
+    }
+
+    .legend-color-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .svg-schematic-wrap {
+      width: 100%;
+      height: 600px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .svg-schematic-wrap svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Pneumatic Circuit Animated Pipes */
+    .pipe-bg {
+      stroke: #d0d0d0;
+      stroke-width: 7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .pipe-flow {
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      transition: stroke 0.3s ease, stroke-dashoffset 0.1s linear;
+    }
+
+    .flow-active {
+      stroke-dasharray: 6 6;
+      animation: pipeFlowAnim 1.2s linear infinite;
+    }
+
+    .flow-reverse {
+      stroke-dasharray: 6 6;
+      animation: pipeFlowAnimReverse 1.2s linear infinite;
+    }
+
+    .flow-highspeed {
+      stroke-dasharray: 8 4;
+      animation: pipeFlowAnim 0.5s linear infinite;
+    }
+
+    @keyframes pipeFlowAnim {
+      from { stroke-dashoffset: 24; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    @keyframes pipeFlowAnimReverse {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: 24; }
+    }
+
+    /* Status Indicators inside SVG */
+    .valve-body {
+      fill: #ffffff;
+      stroke: #393939;
+      stroke-width: 1.5;
+      rx: 2;
+    }
+
+    .valve-body.excited {
+      fill: #defbe6;
+      stroke: var(--tertiary);
+      stroke-width: 2;
+    }
+
+    .valve-body.deexcited {
+      fill: #f4f4f4;
+      stroke: var(--outline);
+    }
+
+    .valve-body.alert-state {
+      fill: #ffd7d9;
+      stroke: var(--error);
+      stroke-width: 2;
+    }
+
+    /* Right Explanation Panels */
+    .status-matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-xs);
+    }
+
+    .matrix-item {
+      background: var(--surface-container-low);
+      border: 1px solid var(--outline-variant);
+      padding: var(--space-xs);
+      border-radius: var(--rounded);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .matrix-label {
+      font-family: var(--font-label);
+      font-size: 0.68rem;
+      color: var(--on-surface-variant);
+    }
+
+    .matrix-val {
+      font-family: var(--font-label);
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2xs);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--outline);
+    }
+
+    .status-dot.on {
+      background: var(--tertiary);
+      box-shadow: 0 0 5px rgba(25, 128, 56, 0.6);
+    }
+
+    .status-dot.off {
+      background: var(--outline);
+    }
+
+    .status-dot.warn {
+      background: var(--warning);
+      box-shadow: 0 0 5px rgba(241, 194, 27, 0.7);
+    }
+
+    .status-dot.err {
+      background: var(--error);
+      box-shadow: 0 0 6px rgba(218, 30, 40, 0.7);
+    }
+
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-xs);
+    }
+
+    .step-item {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: var(--space-xs);
+      font-size: 0.82rem;
+      line-height: 1.45;
+      padding-bottom: var(--space-xs);
+      border-bottom: 1px dashed var(--outline-variant);
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: var(--rounded);
+      background: var(--surface-container-high);
+      font-family: var(--font-label);
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--on-surface);
+    }
+
+    .step-item.active .step-num {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .tech-notes {
+      font-size: 0.78rem;
+      color: var(--on-surface-variant);
+      background: var(--surface-container-low);
+      padding: var(--space-sm);
+      border-left: 3px solid var(--primary);
+      border-radius: var(--rounded);
+      line-height: 1.45;
+    }
+
+    .tech-notes strong {
+      color: var(--on-surface);
+    }
+
+    /* Simulation Control Slider */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-2xs);
+    }
+
+    .slider-row label {
+      font-family: var(--font-label);
+      font-size: 0.72rem;
+      min-width: 90px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .time-indicator {
+      font-family: var(--font-label);
+      font-size: 0.75rem;
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Tooltip styling in SVG */
+    .svg-tooltip {
+      position: absolute;
+      background: #161616;
+      color: #ffffff;
+      padding: var(--space-xs) var(--space-sm);
+      font-size: 0.72rem;
+      font-family: var(--font-body);
+      border-radius: var(--rounded);
+      pointer-events: none;
+      z-index: 50;
+      display: none;
+      max-width: 240px;
+      box-shadow: var(--shadow-2);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .flow-active, .flow-reverse, .flow-highspeed {
+        animation: none !important;
+        stroke-dasharray: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Application Header -->
+  <header class="app-header">
+    <div class="app-title-group">
+      <h1>
+        <i data-lucide="gauge"></i>
+        SIMULATEUR PBL 2 — ROBINET DE MÉCANICIEN ONCF
+      </h1>
+      <p>Presse-Bouton Locomotive Version 2 • Locomotives E1100, E1250, E1300, E1350</p>
+    </div>
+    <div style="display: flex; gap: var(--space-sm); align-items: center;">
+      <span id="surcharge-alarm" class="badge-tag" style="display:none;">
+        <i data-lucide="alert-triangle"></i> VOYANT LAMPE SURCHARGE (5.4b)
+      </span>
+      <span class="badge-tag">
+        <i data-lucide="cpu"></i> ALIMENTATION BT 72V
+      </span>
+      <span class="badge-tag">
+        <i data-lucide="check-circle-2"></i> PNEUMATIQUE CONFORME
+      </span>
+    </div>
+  </header>
+
+  <!-- Main Grid Layout -->
+  <main class="main-layout">
+    
+    <!-- Left Column: Manometers & Cockpit Controls -->
+    <div style="display:flex; flex-direction:column; gap:var(--space-md);">
+      
+      <!-- Manometers Panel -->
+      <section class="card" aria-labelledby="heading-manometers">
+        <div class="card-header">
+          <h2 id="heading-manometers" class="card-title">
+            <i data-lucide="activity"></i> MANOMÈTRES
+          </h2>
+          <span class="card-subtitle">Pressions réelles (bars)</span>
+        </div>
+
+        <div class="manometers-grid">
+          <!-- CP -->
+          <div class="gauge-card cp">
+            <div class="gauge-title">CP (RÉS. PRINCIPAL)</div>
+            <div class="gauge-svg-wrap">
+              <svg viewBox="0 0 100 65" width="90" height="60" aria-label="Manomètre CP">
+                <path d="M 15 55 A 40 40 0 1 1 85 55" fill="none" stroke="#e0e0e0" stroke-width="7" stroke-linecap="round"/>
+                <path d="M 15 55 A 40 40 0 1 1 85 55" fill="none" stroke="var(--air-cp)" stroke-width="7" stroke-dasharray="140" stroke-dashoffset="15" stroke-linecap="round"/>
+                <circle cx="50" cy="55" r="4" fill="#161616"/>
+                <line id="needle-cp" x1="50" y1="55" x2="80" y2="40" stroke="#161616" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="gauge-val" id="val-cp" style="color:var(--air-cp);">9.0 <span class="gauge-unit">bars</span></div>
+          </div>
+
+          <!-- CG -->
+          <div class="gauge-card cg">
+            <div class="gauge-title">CG (CONDUITE GÉN.)</div>
+            <div class="gauge-svg-wrap">
+              <svg viewBox="0 0 100 65" width="90" height="60" aria-label="Manomètre CG">
+                <path d="M 15 55 A 40 40 0 1 1 85 55" fill="none" stroke="#e0e0e0" stroke-width="7" stroke-linecap="round"/>
+                <path id="arc-cg" d="M 15 55 A 40 40 0 1 1 85 55" fill="none" stroke="var(--air-cg)" stroke-width="7" stroke-linecap="round"/>
+                <circle cx="50" cy="55" r="4" fill="#161616"/>
+                <line id="needle-cg" x1="50" y1="55" x2="50" y2="15" stroke="#161616" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="gauge-val" id="val-cg" style="color:var(--air-cg);">5.0 <span class="gauge-unit">bars</span></div>
+          </div>
+
+          <!-- RE -->
+          <div class="gauge-card re">
+            <div class="gauge-title">RE (RÉS. ÉGALISATEUR)</div>
+            <div class="gauge-svg-wrap">
+              <svg viewBox="0 0 100 65" width="90" height="60" aria-label="Manomètre RE">
+                <path d="M 15 55 A 40 40 0 1 1 85 55" fill="none" stroke="#e0e0e0" stroke-width="7" stroke-linecap="round"/>
+                <path id="arc-re" d="M 15 55 A 40 40 0 1 1 85 55" fill="none" stroke="var(--air-re)" stroke-width="7" stroke-linecap="round"/>
+                <circle cx="50" cy="55" r="4" fill="#161616"/>
+                <line id="needle-re" x1="50" y1="55" x2="50" y2="15" stroke="#161616" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="gauge-val" id="val-re" style="color:var(--air-re);">5.0 <span class="gauge-unit">bars</span></div>
+          </div>
+
+          <!-- CF -->
+          <div class="gauge-card cf">
+            <div class="gauge-title">CF (CYLINDRES FREIN)</div>
+            <div class="gauge-svg-wrap">
+              <svg viewBox="0 0 100 65" width="90" height="60" aria-label="Manomètre Cylindres de Frein">
+                <path d="M 15 55 A 40 40 0 1 1 85 55" fill="none" stroke="#e0e0e0" stroke-width="7" stroke-linecap="round"/>
+                <path id="arc-cf" d="M 15 55 A 40 40 0 1 1 85 55" fill="none" stroke="var(--air-cf)" stroke-width="7" stroke-linecap="round"/>
+                <circle cx="50" cy="55" r="4" fill="#161616"/>
+                <line id="needle-cf" x1="50" y1="55" x2="22" y2="45" stroke="#161616" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="gauge-val" id="val-cf" style="color:var(--air-cf);">0.0 <span class="gauge-unit">bars</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 12 Operational Positions Selector -->
+      <section class="card" aria-labelledby="heading-positions">
+        <div class="card-header">
+          <h2 id="heading-positions" class="card-title">
+            <i data-lucide="sliders"></i> 12 POSITIONS DE SERVICE
+          </h2>
+          <span class="card-subtitle">Combinateur & Commandes</span>
+        </div>
+
+        <div class="control-group-title">Séquences Réglementaires ONCF</div>
+        
+        <div class="positions-selector" id="positions-list">
+          <button class="pos-btn" onclick="selectPosition(1)">
+            <span class="pos-num">01</span>
+            <span>1. Service initial (Mise en service - 3.0b)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+          
+          <button class="pos-btn active" onclick="selectPosition(2)">
+            <span class="pos-num">02</span>
+            <span>2. Marche (Régime normal - 5.0b)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(3)">
+            <span class="pos-num">03</span>
+            <span>3. À-coup de remplissage (Grand Débit)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(4)">
+            <span class="pos-num">04</span>
+            <span>4. Fin d'à-coup & Égalisation (4.8b)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(5)">
+            <span class="pos-num">05</span>
+            <span>5. Surcharge volontaire (5.4 bars)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(6)">
+            <span class="pos-num">06</span>
+            <span>6. Élimination progressive de surcharge (3 min)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(7)">
+            <span class="pos-num">07</span>
+            <span>7. Serrage gradué : 1ère dépression (0.4b)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(8)">
+            <span class="pos-num">08</span>
+            <span>8. Serrage gradué continu (Palier 3.8b)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(9)">
+            <span class="pos-num">09</span>
+            <span>9. Desserrage gradué (Remontée pas-à-pas)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(10)">
+            <span class="pos-num">10</span>
+            <span>10. Neutre (Essai étanchéité / Double traction)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn" onclick="selectPosition(11)">
+            <span class="pos-num">11</span>
+            <span>11. Isolement (Changement de cabine / Retrait)</span>
+            <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+          </button>
+
+          <button class="pos-btn urgent" onclick="selectPosition(12)">
+            <span class="pos-num">12</span>
+            <span>12. Urgence (BP URG - Vidange directe CG)</span>
+            <i data-lucide="alert-octagon" style="width:14px;height:14px;color:var(--error);"></i>
+          </button>
+        </div>
+
+        <div style="border-top:1px solid var(--outline-variant); padding-top:var(--space-xs);">
+          <button class="pos-btn secours" style="width:100%; justify-content:center; font-weight:600;" onclick="selectPosition(13)">
+            <i data-lucide="wrench"></i> Passer en Commande de Secours (Robinet 4 voies)
+          </button>
+        </div>
+
+        <!-- Hardware Actions Quick Clicks -->
+        <div class="control-group-title">Commandes Physiques Pupitre</div>
+        <div class="hardware-controls-grid">
+          <button class="hw-btn" onclick="triggerPoussoirGD()">
+            <i data-lucide="zap"></i>
+            <span>Poussoir Grand Débit</span>
+          </button>
+          <button class="hw-btn" onclick="toggleSurchargeSwitch()">
+            <i data-lucide="toggle-left"></i>
+            <span id="btn-label-sur">Interrupteur Surcharge</span>
+          </button>
+          <button class="hw-btn" onclick="triggerManipulateur('serrage')">
+            <i data-lucide="arrow-down-circle"></i>
+            <span>Manipulateur Serrer</span>
+          </button>
+          <button class="hw-btn" onclick="triggerManipulateur('desserrage')">
+            <i data-lucide="arrow-up-circle"></i>
+            <span>Manipulateur Desserrer</span>
+          </button>
+          <button class="hw-btn btn-emergency" style="grid-column: 1 / -1;" onclick="triggerUrgenceBP()">
+            <i data-lucide="alert-triangle"></i>
+            <span>COUP DE POING D'URGENCE (BP URG)</span>
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Center Column: Animated Vector Circuit Diagram -->
+    <div style="display:flex; flex-direction:column; gap:var(--space-md);">
+      
+      <section class="diagram-container card" style="padding:0;" aria-label="Schéma pneumatique interactif">
+        <!-- Diagram Toolbar -->
+        <div class="diagram-toolbar">
+          <div style="display:flex; align-items:center; gap:var(--space-xs);">
+            <strong style="font-size:0.85rem; font-family:var(--font-headline); text-transform:uppercase;">
+              Schéma Pneumatique & Électrique PBL2
+            </strong>
+            <span class="badge-tag" id="current-state-badge">POSITION: MARCHE (5.0 BAR)</span>
+          </div>
+
+          <!-- Pipes Legend -->
+          <div class="legend-chips">
+            <div class="legend-chip">
+              <span class="legend-color-dot" style="background:var(--air-cp);"></span> CP (9b)
+            </div>
+            <div class="legend-chip">
+              <span class="legend-color-dot" style="background:var(--air-cg);"></span> CG (5b)
+            </div>
+            <div class="legend-chip">
+              <span class="legend-color-dot" style="background:var(--air-re);"></span> RE (5b)
+            </div>
+            <div class="legend-chip">
+              <span class="legend-color-dot" style="background:var(--air-sur);"></span> Surcharge (5.4b)
+            </div>
+            <div class="legend-chip">
+              <span class="legend-color-dot" style="background:var(--air-atm);"></span> Échappement Atm
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive SVG Diagram strict to ONCF schematics -->
+        <div class="svg-schematic-wrap" id="schematic-container">
+          <svg viewBox="0 0 950 620" preserveAspectRatio="xMidYMid meet" id="svg-pbl2">
+            <defs>
+              <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="8" stroke="#ccc" stroke-width="1.5" />
+              </pattern>
+              <!-- Arrow markers -->
+              <marker id="arrow-cp" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="var(--air-cp)" />
+              </marker>
+              <marker id="arrow-cg" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="var(--air-cg)" />
+              </marker>
+              <marker id="arrow-re" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="var(--air-re)" />
+              </marker>
+            </defs>
+
+            <!-- Grid boundary / Chassis Panels -->
+            <rect x="15" y="15" width="920" height="590" fill="#fafafa" stroke="#dcdcdc" stroke-width="1.5" rx="4"/>
+            
+            <!-- Boundary zones: Circuit Commande vs Circuit Exécution -->
+            <rect x="25" y="25" width="460" height="365" fill="#fcfcfc" stroke="#e6e6e6" stroke-dasharray="4 4" rx="3"/>
+            <text x="35" y="42" font-family="var(--font-label)" font-size="10" font-weight="700" fill="#888">CIRCUIT DE COMMANDE (RÉSERVOIR ÉGALISATEUR)</text>
+
+            <rect x="495" y="25" width="430" height="455" fill="#fcfcfc" stroke="#e6e6e6" stroke-dasharray="4 4" rx="3"/>
+            <text x="505" y="42" font-family="var(--font-label)" font-size="10" font-weight="700" fill="#888">CIRCUIT D'EXÉCUTION (RELAIS PRINCIPAL & AUTOMATICITÉ)</text>
+
+            <!-- ================= PNEUMATIC PIPES (BACKGROUND + ANIMATED FLOW) ================= -->
+
+            <!-- CP Main Supply (from left) -->
+            <path d="M 20 80 L 80 80 L 80 80 L 160 80" class="pipe-bg"/>
+            <path id="pipe-cp-supply" d="M 20 80 L 160 80" class="pipe-flow flow-active" stroke="var(--air-cp)"/>
+            <text x="30" y="72" font-family="var(--font-label)" font-size="10" font-weight="700" fill="var(--air-cp)">CP (9.0 bars)</text>
+
+            <!-- CP branch down to Relais Principal Valve de Coupure -->
+            <path d="M 120 80 L 120 520 L 530 520 L 530 460" class="pipe-bg"/>
+            <path id="pipe-cp-relais" d="M 120 80 L 120 520 L 530 520 L 530 460" class="pipe-flow flow-active" stroke="var(--air-cp)"/>
+
+            <!-- From Detendeur Pilote (5.0b / 5.4b) to VE(DG) -->
+            <path d="M 240 80 L 280 80 L 280 140 L 330 140" class="pipe-bg"/>
+            <path id="pipe-dp-vedg" d="M 240 80 L 280 80 L 280 140 L 330 140" class="pipe-flow flow-active" stroke="var(--air-re)"/>
+
+            <!-- From VE(DG) to RE (Reservoir Egalisateur) -->
+            <path d="M 390 140 L 430 140 L 430 200 L 250 200 L 250 240" class="pipe-bg"/>
+            <path id="pipe-vedg-re" d="M 390 140 L 430 140 L 430 200 L 250 200 L 250 240" class="pipe-flow flow-active" stroke="var(--air-re)"/>
+
+            <!-- RE line to VE(SG) Serrage Gradué -->
+            <path d="M 250 200 L 120 200 L 120 260" class="pipe-bg"/>
+            <path id="pipe-re-vesg" d="M 250 200 L 120 200 L 120 260" class="pipe-flow" stroke="var(--air-re)"/>
+
+            <!-- VE(SG) to atmosphere or PPD -->
+            <path d="M 120 310 L 120 345 L 80 345" class="pipe-bg"/>
+            <path id="pipe-vesg-ppd" d="M 120 310 L 120 345 L 80 345" class="pipe-flow" stroke="var(--air-atm)"/>
+
+            <!-- RE line to Manostats MC(H) and MC(G) -->
+            <path d="M 250 200 L 360 200 L 360 250" class="pipe-bg"/>
+            <path id="pipe-re-manostats" d="M 250 200 L 360 200 L 360 250" class="pipe-flow flow-active" stroke="var(--air-re)"/>
+
+            <!-- RE Pilot pipe to Relais Principal Chamber (Control chamber) -->
+            <path d="M 250 200 L 460 200 L 460 200 L 530 200" class="pipe-bg"/>
+            <path id="pipe-re-to-relais" d="M 250 200 L 530 200" class="pipe-flow flow-active" stroke="var(--air-re)"/>
+
+            <!-- Surcharge Valve circuit: Detendeur -> VE(SUR) -> Res. Surcharge -->
+            <path d="M 200 115 L 200 160 L 200 170" class="pipe-bg"/>
+            <path id="pipe-sur-loop" d="M 200 115 L 200 170" class="pipe-flow" stroke="var(--air-sur)"/>
+
+            <!-- Relais Principal output to Conduite Générale (CG) -->
+            <path d="M 640 330 L 740 330 L 740 330 L 920 330" class="pipe-bg"/>
+            <path id="pipe-relais-cg" d="M 640 330 L 920 330" class="pipe-flow flow-active" stroke="var(--air-cg)"/>
+            <text x="830" y="320" font-family="var(--font-label)" font-size="10" font-weight="700" fill="var(--air-cg)">CG (5.0 bars)</text>
+
+            <!-- Valve d'automaticité links (chambre sup relais <-> CG) -->
+            <path d="M 585 240 L 585 140 L 680 140" class="pipe-bg"/>
+            <path id="pipe-vautom-top" d="M 585 240 L 585 140 L 680 140" class="pipe-flow" stroke="var(--air-cg)"/>
+
+            <path d="M 740 140 L 800 140 L 800 330" class="pipe-bg"/>
+            <path id="pipe-vautom-cg" d="M 740 140 L 800 140 L 800 330" class="pipe-flow" stroke="var(--air-cg)"/>
+
+            <!-- VE(GD) Grand Débit / A-coup pipe from CP to below membrane relais & RGD -->
+            <path d="M 120 440 L 440 440 L 440 380 L 450 380" class="pipe-bg"/>
+            <path id="pipe-vegd-feed" d="M 120 440 L 440 440 L 440 380 L 450 380" class="pipe-flow" stroke="var(--air-cp)"/>
+
+            <path d="M 480 380 L 530 380" class="pipe-bg"/>
+            <path id="pipe-vegd-relais" d="M 480 380 L 530 380" class="pipe-flow" stroke="var(--air-cp)"/>
+
+            <!-- Emergency Direct Discharge Pipe (BP URG) directly from CG -->
+            <path d="M 850 330 L 850 490 L 890 490" class="pipe-bg"/>
+            <path id="pipe-urgence-vent" d="M 850 330 L 850 490 L 890 490" class="pipe-flow" stroke="var(--air-atm)"/>
+
+            <!-- ================= APPARATUS COMPONENTS ================= -->
+
+            <!-- 1. DETENDEUR PILOTE (REGLEUR DE PRESSION) -->
+            <g id="comp-detendeur" transform="translate(160, 50)" style="cursor:pointer;" onclick="showTooltipComp('detendeur')">
+              <rect width="80" height="60" class="valve-body" id="body-detendeur"/>
+              <text x="40" y="24" font-family="var(--font-label)" font-size="9" font-weight="700" text-anchor="middle" fill="var(--on-surface)">DÉTENDEUR</text>
+              <text x="40" y="37" font-family="var(--font-label)" font-size="8" text-anchor="middle" fill="var(--on-surface)">PILOTE</text>
+              <text x="40" y="50" font-family="var(--font-label)" font-size="9" font-weight="700" text-anchor="middle" id="val-dp-state" fill="var(--air-re)">5.0 bar</text>
+            </g>
+
+            <!-- 2. VE(DG) - ELECTROVALVE DE DESSERRAGE GRADUE -->
+            <g id="comp-vedg" transform="translate(330, 115)" style="cursor:pointer;" onclick="showTooltipComp('vedg')">
+              <rect width="60" height="50" class="valve-body excited" id="body-vedg"/>
+              <text x="30" y="20" font-family="var(--font-label)" font-size="9" font-weight="700" text-anchor="middle">VE (DG)</text>
+              <text x="30" y="32" font-family="var(--font-label)" font-size="7.5" text-anchor="middle">DESSERRAGE</text>
+              <circle cx="30" cy="42" r="4" fill="var(--tertiary)" id="led-vedg"/>
+            </g>
+
+            <!-- 3. VE(SG) - ELECTROVALVE DE SERRAGE GRADUE -->
+            <g id="comp-vesg" transform="translate(90, 260)" style="cursor:pointer;" onclick="showTooltipComp('vesg')">
+              <rect width="60" height="50" class="valve-body deexcited" id="body-vesg"/>
+              <text x="30" y="20" font-family="var(--font-label)" font-size="9" font-weight="700" text-anchor="middle">VE (SG)</text>
+              <text x="30" y="32" font-family="var(--font-label)" font-size="7.5" text-anchor="middle">SERRAGE</text>
+              <circle cx="30" cy="42" r="4" fill="var(--outline)" id="led-vesg"/>
+            </g>
+
+            <!-- 4. RESERVOIR EGALISATEUR (RE) -->
+            <g id="comp-re" transform="translate(210, 240)" style="cursor:pointer;" onclick="showTooltipComp('re')">
+              <rect width="80" height="75" rx="10" fill="#e8f5e9" stroke="var(--air-re)" stroke-width="2"/>
+              <text x="40" y="28" font-family="var(--font-label)" font-size="9" font-weight="700" text-anchor="middle" fill="var(--on-surface)">RÉSERVOIR</text>
+              <text x="40" y="42" font-family="var(--font-label)" font-size="9" font-weight="700" text-anchor="middle" fill="var(--on-surface)">ÉGALISATEUR</text>
+              <text x="40" y="58" font-family="var(--font-label)" font-size="11" font-weight="700" text-anchor="middle" id="re-bar-label" fill="var(--air-re)">5.0 bar</text>
+              <text x="40" y="69" font-family="var(--font-label)" font-size="7" text-anchor="middle" fill="#666">Capacité pilote</text>
+            </g>
+
+            <!-- 5. MANOSTAT H (3.0 bars) & MANOSTAT G (4.8 bars) -->
+            <g id="comp-manostats" transform="translate(320, 250)">
+              <!-- MC H -->
+              <rect x="0" y="0" width="65" height="55" class="valve-body" id="body-mch"/>
+              <text x="32" y="16" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle">MANOSTAT H</text>
+              <text x="32" y="28" font-family="var(--font-label)" font-size="7" text-anchor="middle">Seuil 3.0 bars</text>
+              <text x="32" y="44" font-family="var(--font-label)" font-size="8.5" font-weight="700" text-anchor="middle" id="state-mch" fill="var(--tertiary)">OUVERT (OK)</text>
+
+              <!-- MC G -->
+              <rect x="75" y="0" width="65" height="55" class="valve-body" id="body-mcg"/>
+              <text x="107" y="16" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle">MANOSTAT G</text>
+              <text x="107" y="28" font-family="var(--font-label)" font-size="7" text-anchor="middle">Seuil 4.8 bars</text>
+              <text x="107" y="44" font-family="var(--font-label)" font-size="8.5" font-weight="700" text-anchor="middle" id="state-mcg" fill="var(--tertiary)">BASCULÉ (OK)</text>
+            </g>
+
+            <!-- 6. POCHE DE 1ère DÉPRESSION (PPD - 0.4 bar) -->
+            <g id="comp-ppd" transform="translate(35, 335)">
+              <rect width="45" height="40" rx="4" fill="#f0f0f0" stroke="#888" stroke-width="1.5"/>
+              <text x="22" y="18" font-family="var(--font-label)" font-size="7.5" font-weight="700" text-anchor="middle">PPD</text>
+              <text x="22" y="30" font-family="var(--font-label)" font-size="7" text-anchor="middle">0.4b</text>
+            </g>
+
+            <!-- 7. VE DE SURCHARGE & RESERVOIR SURCHARGE AVEC ECHAPPEMENT LINEAIRE -->
+            <g id="comp-surcharge-box" transform="translate(160, 165)">
+              <rect width="65" height="42" class="valve-body deexcited" id="body-vesur"/>
+              <text x="32" y="16" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle">VE (SUR)</text>
+              <text x="32" y="28" font-family="var(--font-label)" font-size="7" text-anchor="middle">SURCHARGE</text>
+              <circle cx="32" cy="36" r="3.5" fill="var(--outline)" id="led-vesur"/>
+            </g>
+
+            <!-- 8. RELAIS PRINCIPAL (PISTON, MEMBRANE, EQUIPEMENT MOBILE) -->
+            <g id="comp-relais" transform="translate(530, 170)" style="cursor:pointer;" onclick="showTooltipComp('relais')">
+              <rect width="110" height="290" class="valve-body" rx="4" id="body-relais" fill="#ffffff" stroke="#161616" stroke-width="2"/>
+              <rect x="0" y="0" width="110" height="30" fill="#e0e0e0" rx="2"/>
+              <text x="55" y="19" font-family="var(--font-label)" font-size="9.5" font-weight="700" text-anchor="middle">RELAIS PRINCIPAL</text>
+              
+              <!-- Chamber Supérieure -->
+              <rect x="10" y="38" width="90" height="50" fill="#f4f4f4" stroke="#ccc" rx="2"/>
+              <text x="55" y="55" font-family="var(--font-label)" font-size="7.5" text-anchor="middle">Chambre Supérieure</text>
+              <text x="55" y="70" font-family="var(--font-label)" font-size="8" font-weight="600" text-anchor="middle" id="txt-chambre-sup">Équilibrée CG</text>
+
+              <!-- Membrane & Piston mobile -->
+              <rect x="15" y="100" width="80" height="12" id="piston-mobile" fill="#525252" rx="2" style="transition:transform 0.3s ease;"/>
+              <line x1="55" y1="112" x2="55" y2="195" stroke="#161616" stroke-width="6" id="tige-creuse" stroke-linecap="round"/>
+              <text x="55" y="132" font-family="var(--font-label)" font-size="7" text-anchor="middle" fill="#777">Tige creuse d'échappement</text>
+
+              <!-- Piston central RE / CG -->
+              <circle cx="55" cy="155" r="16" fill="var(--primary-container)" stroke="var(--primary)" stroke-width="1.5"/>
+              <text x="55" y="159" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle">RE ⇄ CG</text>
+
+              <!-- Double Clapet Petit & Grand Débit -->
+              <rect x="25" y="210" width="60" height="35" fill="#f8f8f8" stroke="#aaa" rx="2"/>
+              <text x="55" y="224" font-family="var(--font-label)" font-size="7.5" text-anchor="middle">Clapets d'Alimentation</text>
+              <g id="clapets-visual">
+                <circle cx="45" cy="235" r="5" fill="var(--tertiary)" id="clapet-pd"/>
+                <circle cx="65" cy="235" r="6" fill="#888" id="clapet-gd"/>
+              </g>
+              <text x="55" y="260" font-family="var(--font-label)" font-size="8" font-weight="600" text-anchor="middle" id="txt-clapet-state" fill="var(--tertiary)">Petit Débit Actif</text>
+              <text x="55" y="278" font-family="var(--font-label)" font-size="7.5" text-anchor="middle" fill="#666">Pression: <tspan id="relais-cg-disp" font-weight="700">5.0b</tspan></text>
+            </g>
+
+            <!-- 9. VALVE D'AUTOMATICITÉ -->
+            <g id="comp-vautom" transform="translate(680, 100)" style="cursor:pointer;" onclick="showTooltipComp('vautom')">
+              <rect width="60" height="75" class="valve-body" id="body-vautom"/>
+              <text x="30" y="18" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle">VALVE D'</text>
+              <text x="30" y="28" font-family="var(--font-label)" font-size="7.5" font-weight="700" text-anchor="middle">AUTOMATICITÉ</text>
+              
+              <rect x="8" y="36" width="44" height="14" fill="#e0e0e0" rx="1"/>
+              <text x="30" y="46" font-family="var(--font-label)" font-size="7" text-anchor="middle">Chambre sup</text>
+
+              <circle cx="30" cy="62" r="5" fill="#aaa" id="led-vautom"/>
+              <text x="30" y="72" font-family="var(--font-label)" font-size="6.5" text-anchor="middle" id="lbl-vautom">Fermée</text>
+            </g>
+
+            <!-- 10. VALVES COUPURE & ISOLEMENT + VE NEUTRE -->
+            <g id="comp-neutre-group" transform="translate(500, 480)">
+              <!-- Valve Coupure -->
+              <rect x="0" y="0" width="55" height="40" class="valve-body" id="body-vcoup"/>
+              <text x="27" y="15" font-family="var(--font-label)" font-size="7.5" font-weight="700" text-anchor="middle">V. COUP</text>
+              <text x="27" y="28" font-family="var(--font-label)" font-size="7" text-anchor="middle" id="lbl-vcoup" fill="var(--tertiary)">Ouverte</text>
+
+              <!-- Valve Isolement -->
+              <rect x="65" y="0" width="55" height="40" class="valve-body" id="body-visol"/>
+              <text x="92" y="15" font-family="var(--font-label)" font-size="7.5" font-weight="700" text-anchor="middle">V. ISOL</text>
+              <text x="92" y="28" font-family="var(--font-label)" font-size="7" text-anchor="middle" id="lbl-visol" fill="var(--tertiary)">Ouverte</text>
+
+              <!-- VE Neutre -->
+              <rect x="130" y="0" width="60" height="40" class="valve-body deexcited" id="body-ven"/>
+              <text x="160" y="15" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle">VE (N)</text>
+              <text x="160" y="26" font-family="var(--font-label)" font-size="7" text-anchor="middle">NEUTRE</text>
+              <circle cx="160" cy="33" r="3.5" fill="var(--outline)" id="led-ven"/>
+            </g>
+
+            <!-- 11. VE GRAND DEBIT (A-COUP) & RESERVOIR GRAND DEBIT (RGD) -->
+            <g id="comp-gd-box" transform="translate(420, 360)">
+              <rect width="60" height="45" class="valve-body deexcited" id="body-vegd"/>
+              <text x="30" y="16" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle">VE (GD)</text>
+              <text x="30" y="27" font-family="var(--font-label)" font-size="7" text-anchor="middle">GRAND DÉBIT</text>
+              <circle cx="30" cy="37" r="3.5" fill="var(--outline)" id="led-vegd"/>
+
+              <!-- RGD attached -->
+              <rect x="-80" y="0" width="70" height="45" rx="6" fill="#f0f0f0" stroke="#888" stroke-width="1.5"/>
+              <text x="-45" y="18" font-family="var(--font-label)" font-size="7.5" font-weight="700" text-anchor="middle">RGD (50s)</text>
+              <text x="-45" y="30" font-family="var(--font-label)" font-size="7" text-anchor="middle">Grand Débit</text>
+            </g>
+
+            <!-- 12. CLAPET D'URGENCE DIRECT (BP URG) -->
+            <g id="comp-urgence-direct" transform="translate(860, 480)">
+              <rect width="60" height="45" class="valve-body" id="body-urg-clapet" stroke="var(--error)"/>
+              <text x="30" y="17" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle" fill="var(--error)">ÉCHAPP. URG</text>
+              <text x="30" y="30" font-family="var(--font-label)" font-size="7" text-anchor="middle">Section CG</text>
+              <circle cx="30" cy="38" r="4" fill="#aaa" id="led-urg-clapet"/>
+            </g>
+
+            <!-- 13. ROBINET 4 VOIES DE SECOURS -->
+            <g id="comp-robinet-secours" transform="translate(730, 480)" style="cursor:pointer;" onclick="selectPosition(13)">
+              <rect width="85" height="50" rx="3" fill="#fff" stroke="#ff832b" stroke-width="1.5" id="body-robinet4v"/>
+              <text x="42" y="16" font-family="var(--font-label)" font-size="8" font-weight="700" text-anchor="middle" fill="#ff832b">ROBINET 4V</text>
+              <text x="42" y="28" font-family="var(--font-label)" font-size="7" text-anchor="middle" id="lbl-robinet4v">Plombé / Normal</text>
+              <circle cx="42" cy="40" r="4" fill="#aaa" id="led-r4v"/>
+            </g>
+
+            <!-- Arrow symbols indicating active train lines -->
+            <path d="M 920 330 L 935 330" stroke="var(--air-cg)" stroke-width="4" marker-end="url(#arrow-cg)"/>
+            <text x="895" y="350" font-family="var(--font-label)" font-size="8" fill="var(--air-cg)">Vers Rame</text>
+          </svg>
+
+          <!-- Floating Tooltip Container -->
+          <div id="svg-tooltip" class="svg-tooltip"></div>
+        </div>
+      </section>
+
+      <!-- Timing & Progress Tracker for Progressive Actions -->
+      <section class="card" style="padding:var(--space-sm) var(--space-md);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-family:var(--font-label); font-size:0.75rem; font-weight:700;">
+            <i data-lucide="timer"></i> DYNAMIQUE TEMPORELLE DU SYSTÈME
+          </span>
+          <span class="time-indicator" id="phase-timer-text">Régime permanent établi</span>
+        </div>
+        <div class="slider-row">
+          <label for="step-slider">Phase active :</label>
+          <input type="range" id="step-slider" min="1" max="12" value="2" oninput="onSliderMove(this.value)">
+          <span id="slider-step-num" style="font-family:var(--font-label); font-size:0.75rem; font-weight:700; min-width:24px;">#2</span>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Right Column: Step-by-Step Sequences & Exact State Matrix -->
+    <div class="panel-details-col" style="display:flex; flex-direction:column; gap:var(--space-md);">
+      
+      <!-- Electrovalves & Manostats Real-time Table -->
+      <section class="card" aria-labelledby="heading-matrix">
+        <div class="card-header">
+          <h2 id="heading-matrix" class="card-title">
+            <i data-lucide="list-checks"></i> ÉTAT DES ORGANES
+          </h2>
+          <span class="card-subtitle">Temps réel</span>
+        </div>
+
+        <div class="status-matrix-grid">
+          <!-- VE (N) -->
+          <div class="matrix-item">
+            <div class="matrix-label">ÉLECTROVALVE NEUTRE VE(N)</div>
+            <div class="matrix-val" id="stat-ven">
+              <span class="status-dot off"></span> DÉSEXCITÉE (0V)
+            </div>
+          </div>
+
+          <!-- VE (DG) -->
+          <div class="matrix-item">
+            <div class="matrix-label">VE DESSERRAGE GRADUÉ VE(DG)</div>
+            <div class="matrix-val" id="stat-vedg">
+              <span class="status-dot on"></span> EXCITÉE (72V)
+            </div>
+          </div>
+
+          <!-- VE (SG) -->
+          <div class="matrix-item">
+            <div class="matrix-label">VE SERRAGE GRADUÉ VE(SG)</div>
+            <div class="matrix-val" id="stat-vesg">
+              <span class="status-dot off"></span> DÉSEXCITÉE (0V)
+            </div>
+          </div>
+
+          <!-- VE (GD) -->
+          <div class="matrix-item">
+            <div class="matrix-label">VE GRAND DÉBIT VE(GD)</div>
+            <div class="matrix-val" id="stat-vegd">
+              <span class="status-dot off"></span> DÉSEXCITÉE (0V)
+            </div>
+          </div>
+
+          <!-- VE (SUR) -->
+          <div class="matrix-item">
+            <div class="matrix-label">VE SURCHARGE VE(SUR)</div>
+            <div class="matrix-val" id="stat-vesur">
+              <span class="status-dot off"></span> DÉSEXCITÉE (0V)
+            </div>
+          </div>
+
+          <!-- V. AUTOM -->
+          <div class="matrix-item">
+            <div class="matrix-label">VALVE D'AUTOMATICITÉ</div>
+            <div class="matrix-val" id="stat-vautom">
+              <span class="status-dot off"></span> FERMÉE (Petit débit)
+            </div>
+          </div>
+
+          <!-- MC (H) -->
+          <div class="matrix-item">
+            <div class="matrix-label">MANOSTAT (H) [3.0 BARS]</div>
+            <div class="matrix-val" id="stat-mch">
+              <span class="status-dot on"></span> CONTACT OUVERT
+            </div>
+          </div>
+
+          <!-- MC (G) -->
+          <div class="matrix-item">
+            <div class="matrix-label">MANOSTAT (G) [4.8 BARS]</div>
+            <div class="matrix-val" id="stat-mcg">
+              <span class="status-dot on"></span> CONTACT B FERMÉ
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step-by-Step Sequence in French -->
+      <section class="card" aria-labelledby="heading-sequence">
+        <div class="card-header">
+          <h2 id="heading-sequence" class="card-title">
+            <i data-lucide="git-commit"></i> SÉQUENCE DE FONCTIONNEMENT
+          </h2>
+          <span class="card-subtitle" id="seq-current-name">Position Marche</span>
+        </div>
+
+        <div style="font-family:var(--font-label); font-size:0.75rem; color:var(--primary); font-weight:700;" id="seq-subtitle">
+          Circuit Pneumatique & Électrique
+        </div>
+
+        <div class="step-list" id="seq-steps-container">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <div class="tech-notes" id="tech-notes-box">
+          <strong>Principe ONCF :</strong> Le relais principal reproduit exactement dans la CG les variations de pression imposées dans le réservoir égalisateur (RE). La valve de coupure et la valve d'isolement sont commandées par l'électrovalve de neutre.
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- State persistence shim required by skill -->
+  <api-shim></api-shim>
+
+  <script>
+    // System State Variables & Calibration
+    const SYSTEM_CONFIG = {
+      cpPressure: 9.0,
+      normalCgPressure: 5.0,
+      surchargePressure: 5.4,
+      serviceMinPressure: 3.0,
+      rearmPressure: 4.8
+    };
+
+    // 12 Positions Definitions with accurate ONCF electrical & pneumatic sequences
+    const POSITIONS = [
+      {
+        id: 1,
+        name: "1. Service Initial (Mise en service)",
+        badge: "SERVICE INITIAL — 3.0 BARS",
+        cg: 3.0,
+        re: 3.0,
+        cf: 2.2,
+        cp: 9.0,
+        veN: false,  // désexcitée (permet envoi d'air sous pistons coupure et isolement)
+        veDG: true,  // excitée au début par contact MC(H)
+        veSG: true,  // excitée (empêche la mise à l'atmosphère du RE)
+        veGD: false,
+        veSUR: false,
+        vCoup: true,
+        vIsol: true,
+        vAutom: false,
+        mcH: false,  // bascule dès 3.0 bars
+        mcG: false,
+        note: "Avant mise en service, attendre que le réservoir principal CP soit à sa pression de régime (9 bars). Le commutateur Z FPB est placé sur 'Service'. L'électrovalve de neutre est désexcitée, ce qui ouvre les clapets sous les pistons de coupure et d'isolement. L'électrovalve de desserrage alimente le RE jusqu'à 3 bars où le manostat (H) bascule et coupe son alimentation.",
+        steps: [
+          "Commutateur Z FPB placé sur « Service » en cabine de conduite (cabine opposée sur « Isolement »).",
+          "VE Neutre désexcitée : son clapet inférieur envoie l'air de CP sous les pistons de coupure et d'isolement qui s'ouvrent.",
+          "VE Desserrage excitée : alimente le Réservoir Égalisateur (RE) par l'air CP détendu à travers le détendeur pilote.",
+          "VE Serrage excitée : ferme la mise à l'atmosphère du RE.",
+          "À 3.0 bars dans RE : Le manostat (H) bascule, ouvrant son contact (c) et désexcitant VE(DG). La pression RE reste plafonnée à 3.0 bars.",
+          "Le relais principal reproduit immédiatement la montée à 3.0 bars dans la Conduite Générale (CG)."
+        ]
+      },
+      {
+        id: 2,
+        name: "2. Marche (Régime Normal 5.0 bars)",
+        badge: "MARCHE NORMALE — 5.0 BARS",
+        cg: 5.0,
+        re: 5.0,
+        cf: 0.0,
+        cp: 9.0,
+        veN: false,
+        veDG: true,  // seule VE desserrage reste excitée
+        veSG: false, // désexcitée
+        veGD: false,
+        veSUR: false,
+        vCoup: true,
+        vIsol: true,
+        vAutom: false,
+        mcH: true,   // > 3 bars
+        mcG: true,   // > 4.8 bars
+        note: "Position de roulement normal. Seule l'électrovalve de desserrage reste excitée. Le réservoir égalisateur est maintenu à 5 bars par le détendeur pilote. Le relais principal compense les petites fuites de la CG via son clapet de petit débit tout en maintenant une stricte automaticité.",
+        steps: [
+          "Seule l'électrovalve de desserrage VE(DG) reste sous tension (excitée en permanence via le contact b du manostat G).",
+          "Le réservoir égalisateur (RE) est en communication continue avec le régleur de pression à 5.0 bars.",
+          "Le relais principal maintient l'équilibre parfait entre RE et la Conduite Générale (5 bars) par son clapet double.",
+          "L'électrovalve de serrage VE(SG) étant désexcitée, la poche de 1ère dépression (PPD) est à l'atmosphère.",
+          "La valve d'automaticité est fermée, le clapet de petit débit du relais compense les fuites mineures de CG sans provoquer de desserrage intempestif."
+        ]
+      },
+      {
+        id: 3,
+        name: "3. À-coup de remplissage (Grand Débit)",
+        badge: "À-COUP DE REMPLISSAGE (GRAND DÉBIT)",
+        cg: 5.2,
+        re: 5.0,
+        cf: 0.0,
+        cp: 9.0,
+        veN: false,
+        veDG: true,
+        veSG: true,
+        veGD: true,  // excitée par bouton d'à-coup
+        veSUR: false,
+        vCoup: true,
+        vIsol: true,
+        vAutom: true, // valve d'automaticité grande ouverte
+        mcH: true,
+        mcG: false,
+        note: "Utilisé pour accélérer le desserrage des trains longs. Une pression sur le bouton grand débit excite VE(GD). L'air de CP est envoyé sous la membrane du relais principal et dans le réservoir de grand débit (RGD), provoquant l'ouverture forcée des clapets grand débit.",
+        steps: [
+          "Action du mécanicien sur le bouton poussoir « Grand Débit » du pupitre.",
+          "Excitation de l'électrovalve VE(GD) avec auto-maintien électrique.",
+          "VE(GD) envoie la pression directe de CP sous la membrane du relais principal et dans la chambre inférieure de la valve d'automaticité.",
+          "La valve d'automaticité s'ouvre brusquement et vidange la chambre supérieure du relais principal.",
+          "La tige creuse monte à fond, ouvrant le clapet de grand débit : la CG est suralimentée avec un débit massif depuis CP pour débloquer les distributeurs de la rame."
+        ]
+      },
+      {
+        id: 4,
+        name: "4. Fin d'à-coup & Égalisation (4.8b)",
+        badge: "FIN D'À-COUP — PURGE DU RGD",
+        cg: 5.0,
+        re: 5.0,
+        cf: 0.0,
+        cp: 9.0,
+        veN: false,
+        veDG: true,
+        veSG: false,
+        veGD: false, // retombe
+        veSUR: false,
+        vCoup: true,
+        vIsol: true,
+        vAutom: false, // se referme lentement (50s)
+        mcH: true,
+        mcG: true,   // bascule à 4.8b
+        note: "Dès que RE atteint 4.8 bars, le manostat (G) bascule : son contact 'b' s'ouvre et 'a' se ferme, désexcitant VE(GD). Le réservoir RGD se vide progressivement par un orifice calibré en environ 50 secondes, refermant en douceur la valve d'automaticité.",
+        steps: [
+          "À 4.8 bars dans RE : le manostat (G) bascule, coupant l'alimentation de l'électrovalve de grand débit VE(GD).",
+          "Le régleur de pression élimine par sa tige creuse le surplus de pression existant sous la membrane du relais.",
+          "Le réservoir de grand débit (RGD) s'échappe lentement à l'atmosphère (pendant ~50 secondes) par orifice calibré.",
+          "La valve d'automaticité se referme graduellement, interrompant la liaison directe CG - chambre supérieure.",
+          "Le système revient au régime de veille de la position « Marche » sans à-coup brusque."
+        ]
+      },
+      {
+        id: 5,
+        name: "5. Surcharge Volontaire (5.4 bars)",
+        badge: "SURCHARGE VOLONTAIRE — 5.4 BARS",
+        cg: 5.4,
+        re: 5.4,
+        cf: 0.0,
+        cp: 9.0,
+        veN: false,
+        veDG: true,
+        veSG: false,
+        veGD: false,
+        veSUR: true, // excitée
+        vCoup: true,
+        vIsol: true,
+        vAutom: true,
+        mcH: true,
+        mcG: true,
+        note: "Nécessaire pour éliminer un serrage résiduel dans le train. L'interrupteur de surcharge excite VE(SUR) et allume la lampe témoin de surcharge. La pression de consigne du détendeur est portée à 5.4 bars dans RE et CG.",
+        steps: [
+          "Basculement de l'interrupteur « Surcharge » sur le pupitre de conduite.",
+          "Allumage immédiat du voyant orange de surcharge en cabine.",
+          "Excitation de l'électrovalve de surcharge VE(SUR).",
+          "L'air CG s'applique sur une surface additionnelle du détendeur pilote, recalibrant la régulation à 5.4 bars.",
+          "Remplissage sous 5.4 bars du réservoir de surcharge et du réservoir égalisateur.",
+          "Le relais principal transmet les 5.4 bars dans la conduite générale. Cette position n'étant pas automatique, le conducteur doit y séjourner un temps limité."
+        ]
+      },
+      {
+        id: 6,
+        name: "6. Élimination Progressive de Surcharge",
+        badge: "ÉLIMINATION LINÉAIRE (3 MINUTES)",
+        cg: 5.0,
+        re: 5.0,
+        cf: 0.0,
+        cp: 9.0,
+        veN: false,
+        veDG: true,
+        veSG: false,
+        veGD: false,
+        veSUR: false, // éteint
+        vCoup: true,
+        vIsol: true,
+        vAutom: false,
+        mcH: true,
+        mcG: true,
+        note: "Remise de l'interrupteur sur Arrêt. La surcharge de 0.4 bar est éliminée par la valve d'échappement linéaire en 3 minutes environ. Cette lenteur garantit de ne pas franchir le seuil d'insensibilité des distributeurs de la rame.",
+        steps: [
+          "Interrupteur de surcharge ramené sur arrêt : extinction du voyant témoin.",
+          "Désexcitation de l'électrovalve VE(SUR).",
+          "Le réservoir de surcharge se vide très progressivement à l'atmosphère par l'échappement linéaire (baisse de 0.4 bar étalée sur 3 minutes).",
+          "La chambre additionnelle du régleur de pression se décharge au même rythme sans secousse.",
+          "Le relais principal répercute cette baisse ultra-lente dans la CG de 5.4 à 5.0 bars sans provoquer le moindre serrage des freins de la rame."
+        ]
+      },
+      {
+        id: 7,
+        name: "7. Serrage Gradué : 1ère Dépression (0.4b)",
+        badge: "1ère DÉPRESSION AUTOMATIQUE (-0.4 BAR)",
+        cg: 4.6,
+        re: 4.6,
+        cf: 0.8,
+        cp: 9.0,
+        veN: false,
+        veDG: false, // désexcitée
+        veSG: true,  // excitée pour isoler après vidange PPD
+        veGD: false,
+        veSUR: false,
+        vCoup: true,
+        vIsol: true,
+        vAutom: false,
+        mcH: true,
+        mcG: false,  // Manostat G bascule (perte de 0.2b)
+        note: "Dès que le manipulateur est tiré vers serrage, VE(DG) est désexcitée. Le réservoir égalisateur communique avec la Poche de Première Dépression (PPD), faisant chuter la pression exactement de 0.4 bar (de 5.0 à 4.6 bars) pour amorcer le freinage.",
+        steps: [
+          "Action initiale du conducteur sur le manipulateur MP FP vers le cran « Serrage ».",
+          "Désexcitation immédiate de l'électrovalve de desserrage VE(DG).",
+          "Le RE est mis en relation avec la poche de 1ère dépression (PPD), provoquant une détente instantanée et calibrée de 0.4 bar.",
+          "Le manostat G détecte la baisse de 0.2 bar et inverse ses contacts électriques.",
+          "La pression de la PPD s'applique sur la valve d'automaticité, confirmant sa fermeture ferme (maintien du petit débit).",
+          "Le piston du relais principal descend, ouvre l'échappement de la CG jusqu'à ce que CG = 4.6 bars. Les cylindres de frein locomotive reçoivent ~0.8 bar."
+        ]
+      },
+      {
+        id: 8,
+        name: "8. Serrage Gradué Continu (Palier 3.8b)",
+        badge: "SERRAGE GRADUÉ EN COURS (3.8 BARS)",
+        cg: 3.8,
+        re: 3.8,
+        cf: 1.8,
+        cp: 9.0,
+        veN: false,
+        veDG: false,
+        veSG: false, // désexcitée pendant l'action manuelle = vidange atm
+        veGD: false,
+        veSUR: false,
+        vCoup: true,
+        vIsol: true,
+        vAutom: false,
+        mcH: true,
+        mcG: false,
+        note: "Tant que le mécanicien maintient le manipulateur sur serrage, VE(SG) est désexcitée, vidangeant le RE à l'atmosphère par un orifice calibré. Quand l'action cesse, VE(SG) est réexcitée et isole le RE.",
+        steps: [
+          "Maintien du manipulateur sur « Serrage » par le conducteur.",
+          "Désexcitation de l'électrovalve VE(SG) : le réservoir égalisateur se vide à l'atmosphère par un ajutage calibré.",
+          "La baisse de pression dans RE est directement proportionnelle à la durée d'appui du conducteur.",
+          "Relâchement du manipulateur : VE(SG) se réexcite immédiatement, emprisonnant l'air dans RE à la pression voulue (ex. 3.8 bars).",
+          "Le relais principal recopie fidèlement la dépression dans la CG, actionnant proportionnellement les cylindres de frein (1.8 bars).",
+          "Sécurité absolue : si le conducteur insistait trop, le manostat (H) interdirait toute baisse de RE en dessous de 3.0 bars."
+        ]
+      },
+      {
+        id: 9,
+        name: "9. Desserrage Gradué (Remontée pas-à-pas)",
+        badge: "DESSERRAGE GRADUÉ PAS-À-PAS",
+        cg: 4.4,
+        re: 4.4,
+        cf: 0.9,
+        cp: 9.0,
+        veN: false,
+        veDG: true,  // excitée par le manipulateur
+        veSG: true,  // reste fermée
+        veGD: false,
+        veSUR: false,
+        vCoup: true,
+        vIsol: true,
+        vAutom: false,
+        mcH: true,
+        mcG: false,  // pas encore 4.8b
+        note: "Action sur le manipulateur dans le sens desserrage : excitation de VE(DG) qui réinjecte de l'air de 5 bars du détendeur dans le RE. Le relais principal remonte la pression dans la CG. Dès 4.8 bars, le manostat (G) bascule et rétablit la position Marche.",
+        steps: [
+          "Action brève ou continue du conducteur sur le manipulateur vers le cran « Desserrage ».",
+          "Excitation temporaire de l'électrovalve de desserrage VE(DG).",
+          "L'air régulé à 5 bars ré-alimente le réservoir égalisateur à une cadence modérée.",
+          "Dès que le mécanicien relâche, VE(DG) coupe et la pression RE se stabilise au palier choisi.",
+          "Le relais principal ouvre l'alimentation de la CG et desserre proportionnellement les timoneries.",
+          "Dès que RE atteint 4.8 bars, le manostat G bascule définitivement son contact b, excitant VE(DG) en continu pour rallier 5.0 bars (retour en Marche)."
+        ]
+      },
+      {
+        id: 10,
+        name: "10. Neutre (Essai Étanchéité / Double Traction)",
+        badge: "NEUTRE — ESSAI D'ÉTANCHÉITÉ / DT",
+        cg: 5.0,
+        re: 5.0,
+        cf: 0.0,
+        cp: 9.0,
+        veN: true,   // excitée !
+        veDG: true,  // excitée
+        veSG: false, // désexcitée
+        veGD: false,
+        veSUR: false,
+        vCoup: false, // fermée !
+        vIsol: false, // fermée !
+        vAutom: false,
+        mcH: true,
+        mcG: true,
+        note: "Indispensable pour l'essai d'étanchéité de la CG et la circulation en double traction. L'électrovalve de neutre VE(N) est excitée : les valves de coupure et d'isolement coupent la CG de la machine. Si la machine mène freine, la baisse de CG agit sur le relais.",
+        steps: [
+          "Combinateur Z FPB placé sur la position « Neutre ».",
+          "L'électrovalve de neutre VE(N) est excitée par la commande électrique.",
+          "L'échappement sous les pistons des valves de coupure et d'isolement est ouvert : les deux valves se ferment sous l'action de leurs ressorts.",
+          "La communication entre le relais principal et le réservoir principal CP est totalement coupée.",
+          "La Conduite Générale (CG) est ainsi isolée de toute réalimentation : le conducteur observe le manomètre CG pour chiffrer le taux de fuite du train.",
+          "En double traction (2ème machine), le mécanicien peut à tout moment serrer en actionnant son manipulateur (désexcitation de VE(N))."
+        ]
+      },
+      {
+        id: 11,
+        name: "11. Isolement (Changement de Cabine / Retrait)",
+        badge: "ISOLEMENT — CABINE HORS SERVICE",
+        cg: 0.0,
+        re: 0.0,
+        cf: 3.8, // serrage complet
+        cp: 9.0,
+        veN: false,
+        veDG: false, // coupé
+        veSG: false, // coupé
+        veGD: false,
+        veSUR: false,
+        vCoup: false,
+        vIsol: false,
+        vAutom: false,
+        mcH: false,
+        mcG: false,
+        note: "Placé sur Isolement lors d'un changement de cabine. L'alimentation électrique de l'appareillage est coupée. La poignée du commutateur peut être retirée. Le réservoir égalisateur se vide à fond, entraînant la vidange de CG et le serrage complet.",
+        steps: [
+          "Rotation de la clé Z FPB sur « Isolement » (seule position autorisant le retrait de la clé).",
+          "Coupure complète de l'alimentation électrique 72V du panneau PBL2.",
+          "Désexcitation totale de VE(DG) et VE(SG) : ouverture de la purge du RE à l'atmosphère.",
+          "La chute totale à 0 bar dans le RE fait chuter la CG à 0 bar via le relais.",
+          "Serrage à fond automatique de tous les freins de la locomotive et de la rame (CF = 3.8 bars).",
+          "Lors de l'activation de la 2nde cabine, le manostat (H) permettra de réalimenter automatiquement le RE à 3.0 bars dès la mise en service."
+        ]
+      },
+      {
+        id: 12,
+        name: "12. Urgence (BP URG - Vidange Directe CG)",
+        badge: "FREINAGE D'URGENCE (BP URG)",
+        cg: 0.0,
+        re: 0.0,
+        cf: 3.8,
+        cp: 9.0,
+        veN: true,   // alimentée pour interdire tout desserrage
+        veDG: false, // coupée
+        veSG: false, // coupée
+        veGD: false,
+        veSUR: false,
+        vCoup: false,
+        vIsol: false,
+        vAutom: false,
+        mcH: false,
+        mcG: false,
+        note: "Coup de poing d'urgence : ouverture instantanée d'un clapet de section identique à la CG vers l'atmosphère. L'électricité générale est coupée mais VE(N) est excitée pour interdire formellement toute réalimentation ou desserrage intempestif.",
+        steps: [
+          "Enfoncement brutal du coup de poing d'urgence BP URG en cabine de conduite.",
+          "Ouverture mécanique immédiate d'un clapet grand diamètre d'échappement direct de la CG à l'air libre.",
+          "Chute ultra-rapide de la Conduite Générale de 5.0 à 0 bar en une fraction de seconde.",
+          "Le circuit électrique coupe l'alimentation de l'ensemble de l'automate PBL2...",
+          "...mais alimente directement la bobine de VE(N) (Neutre) : verrouillage des valves de coupure.",
+          "Toute tentative de réalimentation ou de desserrage est physiquement et électriquement impossible jusqu'au réarmement du BP URG."
+        ]
+      },
+      {
+        id: 13,
+        name: "Commande de Secours (Robinet à 4 Voies)",
+        badge: "COMMANDE DE SECOURS PNEUMATIQUE",
+        cg: 4.2,
+        re: 4.2,
+        cf: 1.2,
+        cp: 9.0,
+        veN: false,
+        veDG: false,
+        veSG: true,  // alimentée en direct de la batterie !
+        veGD: false,
+        veSUR: false,
+        vCoup: true,
+        vIsol: true,
+        vAutom: false,
+        mcH: true,
+        mcG: false,
+        note: "En cas de panne totale du circuit électrique. Le mécanicien tire le téton de verrouillage et tourne le robinet à 4 voies d'un quart de tour (horizontal). L'électrovalve de serrage est alimentée directement par la batterie sans passer par le pupitre, et le robinet de frein direct pilote désormais le RE.",
+        steps: [
+          "Mise du commutateur Z FPB sur « Isolement » ou « Retrait » selon série locomotive (E1100, E1250, E1300/1350).",
+          "Vérification que le frein direct est desserré puis placé en position médiane.",
+          "Déplombage de la poignée du robinet à 4 voies, traction du téton de verrouillage et rotation d'un quart de tour à l'horizontale.",
+          "Un contact mécanique sur le robinet alimente en direct de la batterie la bobine de VE(SG) : fermeture étanche de l'échappement du RE.",
+          "Le circuit du robinet de frein direct est dévié vers le Réservoir Égalisateur : le mécanicien module lui-même la pression de 0 à 5 bars.",
+          "Attention : le frein direct locomotive devient inopérant et les fuites du RE ne sont plus auto-compensées (surveillance accrue requise)."
+        ]
+      }
+    ];
+
+    let currentPosId = 2; // Default to 'Marche'
+    let surchargeSwitchActive = false;
+
+    // Component Explanations Dictionary for Tooltips & Clicks
+    const COMP_DESCRIPTIONS = {
+      detendeur: "<strong>Détendeur Pilote (Régleur de Pression) :</strong> Alimente le circuit de commande à 5.0 bars (ou 5.4 bars en surcharge). Il élimine le surplus de pression dans le RE lors de la cessation de l'à-coup.",
+      vedg: "<strong>Électrovalve de Desserrage VE(DG) :</strong> Élève la pression du Réservoir Égalisateur à partir de la source régulée à 5.0 bars du détendeur pilote.",
+      vesg: "<strong>Électrovalve de Serrage VE(SG) :</strong> Abaisse la pression du RE par vidange calibrée à l'atmosphère. Lorsqu'elle est excitée, elle ferme l'échappement.",
+      re: "<strong>Réservoir Égalisateur (RE) :</strong> Capacité tampon de référence où toutes les variations de pression sont générées avec précision par la commande avant d'être répercutées dans la CG.",
+      relais: "<strong>Relais Principal d'Exécution :</strong> Reproduit dans la CG avec de forts débits les variations de pression du RE. Il comprend une tige creuse d'échappement, un piston différentiel et deux clapets (petit et grand débit).",
+      vautom: "<strong>Valve d'Automaticité :</strong> Permet le changement de débit du relais (passage automatique en grand débit lors des à-coups ou de la surcharge pour accélérer les transferts d'air).",
+      neutre: "<strong>Électrovalve de Neutre & Valves de Coupure/Isolement :</strong> En position neutre (excitée), elle vidange les chambres sous les pistons de coupure et d'isolement, coupant toute liaison entre CP, le relais et l'atmosphère."
+    };
+
+    function initSimulator() {
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+      renderPosition(currentPosId);
+    }
+
+    function selectPosition(id) {
+      currentPosId = id;
+      const slider = document.getElementById("step-slider");
+      if (slider && id <= 12) {
+        slider.value = id;
+        const numLabel = document.getElementById("slider-step-num");
+        if (numLabel) numLabel.textContent = "#" + id;
+      }
+      renderPosition(id);
+    }
+
+    function onSliderMove(val) {
+      selectPosition(parseInt(val, 10));
+    }
+
+    function renderPosition(id) {
+      const p = POSITIONS.find(item => item.id === id) || POSITIONS[1];
+
+      // Update button active states in list
+      const btnList = document.querySelectorAll("#positions-list .pos-btn");
+      btnList.forEach((btn, idx) => {
+        if (idx + 1 === id) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+
+      // Update Gauge Needles and Values
+      updateGauges(p.cp, p.cg, p.re, p.cf);
+
+      // Update Top Status Badges
+      const badge = document.getElementById("current-state-badge");
+      if (badge) {
+        badge.textContent = p.badge;
+      }
+
+      const surchargeAlarm = document.getElementById("surcharge-alarm");
+      if (surchargeAlarm) {
+        surchargeAlarm.style.display = (p.id === 5) ? "inline-flex" : "none";
+      }
+
+      // Update Status Matrix Table
+      updateStatusMatrix(p);
+
+      // Update Steps list in Right Column
+      updateStepSequences(p);
+
+      // Animate Pneumatic Circuit Vector SVG
+      updateSvgDiagram(p);
+
+      // Update timer indicator
+      const timerTxt = document.getElementById("phase-timer-text");
+      if (timerTxt) {
+        if (p.id === 6) {
+          timerTxt.textContent = "Vidange linéaire en cours : ~3 minutes";
+        } else if (p.id === 4) {
+          timerTxt.textContent = "Purge réservoir RGD : ~50 secondes";
+        } else if (p.id === 12) {
+          timerTxt.textContent = "Vidange immédiate CG : < 1 seconde";
+        } else {
+          timerTxt.textContent = "État stationnaire établi";
+        }
+      }
+    }
+
+    function updateGauges(cp, cg, re, cf) {
+      // Numerical displays
+      document.getElementById("val-cp").innerHTML = cp.toFixed(1) + ' <span class="gauge-unit">bars</span>';
+      document.getElementById("val-cg").innerHTML = cg.toFixed(1) + ' <span class="gauge-unit">bars</span>';
+      document.getElementById("val-re").innerHTML = re.toFixed(1) + ' <span class="gauge-unit">bars</span>';
+      document.getElementById("val-cf").innerHTML = cf.toFixed(1) + ' <span class="gauge-unit">bars</span>';
+
+      // Angle calculations (0 to 10 bars -> -120deg to +120deg)
+      const calcNeedle = (val, max = 10) => {
+        const angle = -125 + (val / max) * 250;
+        const rad = (angle - 90) * (Math.PI / 180);
+        const cx = 50, cy = 55, r = 35;
+        const x2 = cx + r * Math.cos(rad);
+        const y2 = cy + r * Math.sin(rad);
+        return { x2, y2 };
+      };
+
+      const nCP = calcNeedle(cp, 10);
+      const needleCPEl = document.getElementById("needle-cp");
+      needleCPEl.setAttribute("x2", nCP.x2.toFixed(1));
+      needleCPEl.setAttribute("y2", nCP.y2.toFixed(1));
+
+      const nCG = calcNeedle(cg, 10);
+      const needleCGEl = document.getElementById("needle-cg");
+      needleCGEl.setAttribute("x2", nCG.x2.toFixed(1));
+      needleCGEl.setAttribute("y2", nCG.y2.toFixed(1));
+
+      const nRE = calcNeedle(re, 10);
+      const needleREEl = document.getElementById("needle-re");
+      needleREEl.setAttribute("x2", nRE.x2.toFixed(1));
+      needleREEl.setAttribute("y2", nRE.y2.toFixed(1));
+
+      const nCF = calcNeedle(cf, 5); // CF goes to 4 bars
+      const needleCFEl = document.getElementById("needle-cf");
+      needleCFEl.setAttribute("x2", nCF.x2.toFixed(1));
+      needleCFEl.setAttribute("y2", nCF.y2.toFixed(1));
+    }
+
+    function updateStatusMatrix(p) {
+      const setMatrix = (id, isActive, onTxt, offTxt, isWarn = false, isErr = false) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const dotClass = isErr ? "status-dot err" : isWarn ? "status-dot warn" : (isActive ? "status-dot on" : "status-dot off");
+        el.innerHTML = '<span class="' + dotClass + '"></span> ' + (isActive ? onTxt : offTxt);
+      };
+
+      setMatrix("stat-ven", p.veN, "EXCITÉE (72V - ISOLATION)", "DÉSEXCITÉE (NORMAL)", false, p.id === 12);
+      setMatrix("stat-vedg", p.veDG, "EXCITÉE (72V - ALIM RE)", "DÉSEXCITÉE (COUPE RE)");
+      setMatrix("stat-vesg", p.veSG, "EXCITÉE (RE FERMÉ)", "DÉSEXCITÉE (RE À L'AIR)");
+      setMatrix("stat-vegd", p.veGD, "EXCITÉE (GRAND DÉBIT)", "DÉSEXCITÉE");
+      setMatrix("stat-vesur", p.veSUR, "EXCITÉE (5.4 BARS)", "DÉSEXCITÉE", true);
+      setMatrix("stat-vautom", p.vAutom, "OUVERTE (GRAND DÉBIT)", "FERMÉE (PETIT DÉBIT)");
+      setMatrix("stat-mch", p.mcH, "BASCULÉ (> 3.0 BARS)", "ACTIF / ALIM (< 3.0 BARS)");
+      setMatrix("stat-mcg", p.mcG, "BASCULÉ (> 4.8 BARS)", "ENCLENCHÉ SERRAGE");
+    }
+
+    function updateStepSequences(p) {
+      const titleEl = document.getElementById("seq-current-name");
+      if (titleEl) titleEl.textContent = p.name;
+
+      const container = document.getElementById("seq-steps-container");
+      if (!container) return;
+
+      let html = "";
+      p.steps.forEach((step, index) => {
+        html += `
+          <div class="step-item ${index === 0 ? 'active' : ''}">
+            <div class="step-num">${index + 1}</div>
+            <div>${step}</div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+
+      const notesBox = document.getElementById("tech-notes-box");
+      if (notesBox) {
+        notesBox.innerHTML = `<strong>Note Opérationnelle ONCF :</strong> ${p.note}`;
+      }
+    }
+
+    function updateSvgDiagram(p) {
+      // 1. Valves Bodies Class Toggling
+      const setValveStyle = (bodyId, ledId, isActive, isAlert = false) => {
+        const body = document.getElementById(bodyId);
+        const led = document.getElementById(ledId);
+        if (body) {
+          body.classList.remove("excited", "deexcited", "alert-state");
+          if (isAlert) body.classList.add("alert-state");
+          else if (isActive) body.classList.add("excited");
+          else body.classList.add("deexcited");
+        }
+        if (led) {
+          led.setAttribute("fill", isAlert ? "var(--error)" : (isActive ? "var(--tertiary)" : "var(--outline)"));
+        }
+      };
+
+      setValveStyle("body-vedg", "led-vedg", p.veDG);
+      setValveStyle("body-vesg", "led-vesg", p.veSG);
+      setValveStyle("body-vegd", "led-vegd", p.veGD);
+      setValveStyle("body-vesur", "led-vesur", p.veSUR, p.veSUR);
+      setValveStyle("body-ven", "led-ven", p.veN, p.veN);
+
+      // Détendeur Pilote text
+      const dpText = document.getElementById("val-dp-state");
+      if (dpText) {
+        dpText.textContent = (p.id === 5) ? "5.4 bar" : "5.0 bar";
+        dpText.setAttribute("fill", (p.id === 5) ? "var(--air-sur)" : "var(--air-re)");
+      }
+
+      // RE bar label
+      const reBar = document.getElementById("re-bar-label");
+      if (reBar) {
+        reBar.textContent = p.re.toFixed(1) + " bar";
+      }
+
+      // Relais display label
+      const relaisCG = document.getElementById("relais-cg-disp");
+      if (relaisCG) relaisCG.textContent = p.cg.toFixed(1) + "b";
+
+      // Valve d'automaticité
+      const ledVautom = document.getElementById("led-vautom");
+      const lblVautom = document.getElementById("lbl-vautom");
+      if (ledVautom && lblVautom) {
+        if (p.vAutom) {
+          ledVautom.setAttribute("fill", "var(--tertiary)");
+          lblVautom.textContent = "OUVERTE (GD)";
+          lblVautom.setAttribute("fill", "var(--tertiary)");
+        } else {
+          ledVautom.setAttribute("fill", "#aaa");
+          lblVautom.textContent = "Fermée";
+          lblVautom.setAttribute("fill", "#666");
+        }
+      }
+
+      // Valves coupure & isolement
+      const lblCoup = document.getElementById("lbl-vcoup");
+      const lblIsol = document.getElementById("lbl-visol");
+      if (lblCoup) {
+        lblCoup.textContent = p.vCoup ? "Ouverte" : "Fermée";
+        lblCoup.setAttribute("fill", p.vCoup ? "var(--tertiary)" : "var(--error)");
+      }
+      if (lblIsol) {
+        lblIsol.textContent = p.vIsol ? "Ouverte" : "Fermée";
+        lblIsol.setAttribute("fill", p.vIsol ? "var(--tertiary)" : "var(--error)");
+      }
+
+      // Manostats H and G labels
+      const mchTxt = document.getElementById("state-mch");
+      if (mchTxt) {
+        mchTxt.textContent = p.mcH ? "OUVERT (OK)" : "FERMÉ (ALIM)";
+        mchTxt.setAttribute("fill", p.mcH ? "var(--tertiary)" : "var(--warning)");
+      }
+      const mcgTxt = document.getElementById("state-mcg");
+      if (mcgTxt) {
+        mcgTxt.textContent = p.mcG ? "BASCULÉ (OK)" : "INVERSÉ (DÉP)";
+        mcgTxt.setAttribute("fill", p.mcG ? "var(--tertiary)" : "var(--warning)");
+      }
+
+      // Clapets status in Relais
+      const clapetPD = document.getElementById("clapet-pd");
+      const clapetGD = document.getElementById("clapet-gd");
+      const txtClapet = document.getElementById("txt-clapet-state");
+      if (clapetPD && clapetGD && txtClapet) {
+        if (p.vAutom || p.id === 3 || p.id === 5) {
+          clapetPD.setAttribute("fill", "var(--tertiary)");
+          clapetGD.setAttribute("fill", "var(--tertiary)");
+          txtClapet.textContent = "Grand & Petit Débit";
+          txtClapet.setAttribute("fill", "var(--tertiary)");
+        } else if (p.id === 10 || p.id === 11 || p.id === 12) {
+          clapetPD.setAttribute("fill", "#aaa");
+          clapetGD.setAttribute("fill", "#aaa");
+          txtClapet.textContent = "Alimentation Coupée";
+          txtClapet.setAttribute("fill", "var(--error)");
+        } else {
+          clapetPD.setAttribute("fill", "var(--tertiary)");
+          clapetGD.setAttribute("fill", "#aaa");
+          txtClapet.textContent = "Petit Débit Actif";
+          txtClapet.setAttribute("fill", "var(--tertiary)");
+        }
+      }
+
+      // Piston Relais position (Translate up or down)
+      const pistonMobile = document.getElementById("piston-mobile");
+      if (pistonMobile) {
+        if (p.id === 3 || p.id === 5) {
+          pistonMobile.style.transform = "translateY(-6px)";
+        } else if (p.id === 7 || p.id === 8 || p.id === 12) {
+          pistonMobile.style.transform = "translateY(8px)";
+        } else {
+          pistonMobile.style.transform = "translateY(0px)";
+        }
+      }
+
+      // Robinet 4 voies (Secours)
+      const r4vBody = document.getElementById("body-robinet4v");
+      const r4vLbl = document.getElementById("lbl-robinet4v");
+      const r4vLed = document.getElementById("led-r4v");
+      if (r4vBody && r4vLbl && r4vLed) {
+        if (p.id === 13) {
+          r4vBody.setAttribute("fill", "#ffe6cf");
+          r4vLbl.textContent = "1/4 Tour Actif";
+          r4vLbl.setAttribute("fill", "var(--air-sur)");
+          r4vLed.setAttribute("fill", "var(--air-sur)");
+        } else {
+          r4vBody.setAttribute("fill", "#fff");
+          r4vLbl.textContent = "Plombé / Normal";
+          r4vLbl.setAttribute("fill", "#888");
+          r4vLed.setAttribute("fill", "#aaa");
+        }
+      }
+
+      // Emergency Vent Valve
+      const ledUrg = document.getElementById("led-urg-clapet");
+      if (ledUrg) {
+        ledUrg.setAttribute("fill", (p.id === 12) ? "var(--error)" : "#aaa");
+      }
+
+      // 2. Animated Flow Pipes Direction and Activity
+      updatePipeFlows(p);
+    }
+
+    function updatePipeFlows(p) {
+      const setPipe = (pipeId, isFlowing, isHighSpeed = false, isReverse = false) => {
+        const pipe = document.getElementById(pipeId);
+        if (!pipe) return;
+        pipe.classList.remove("flow-active", "flow-highspeed", "flow-reverse");
+        if (isFlowing) {
+          if (isHighSpeed) pipe.classList.add("flow-highspeed");
+          else if (isReverse) pipe.classList.add("flow-reverse");
+          else pipe.classList.add("flow-active");
+        }
+      };
+
+      // CP supply is always pressurised
+      setPipe("pipe-cp-supply", true);
+      setPipe("pipe-cp-relais", p.vCoup);
+
+      // Détendeur -> VE(DG) -> RE
+      setPipe("pipe-dp-vedg", p.veDG);
+      setPipe("pipe-vedg-re", p.veDG);
+
+      // RE -> VE(SG) -> PPD
+      setPipe("pipe-re-vesg", p.id === 7 || p.id === 8 || p.id === 11);
+      setPipe("pipe-vesg-ppd", p.id === 7 || p.id === 8 || p.id === 11);
+
+      // RE -> Relais
+      setPipe("pipe-re-to-relais", p.id !== 11 && p.id !== 12);
+
+      // Relais -> CG
+      const cgFlow = (p.id === 2 || p.id === 3 || p.id === 5 || p.id === 9);
+      const cgExhaust = (p.id === 7 || p.id === 8 || p.id === 11 || p.id === 12);
+      setPipe("pipe-relais-cg", cgFlow || cgExhaust, p.id === 3 || p.id === 12, cgExhaust);
+
+      // Automaticité
+      setPipe("pipe-vautom-top", p.vAutom);
+      setPipe("pipe-vautom-cg", p.vAutom);
+
+      // Grand Débit
+      setPipe("pipe-vegd-feed", p.veGD);
+      setPipe("pipe-vegd-relais", p.veGD, true);
+
+      // Urgence
+      setPipe("pipe-urgence-vent", p.id === 12, true);
+    }
+
+    // Cockpit Hardware Buttons Interactions
+    function triggerPoussoirGD() {
+      selectPosition(3);
+      setTimeout(() => {
+        if (currentPosId === 3) {
+          selectPosition(4);
+        }
+      }, 3500);
+    }
+
+    function toggleSurchargeSwitch() {
+      surchargeSwitchActive = !surchargeSwitchActive;
+      const btnLabel = document.getElementById("btn-label-sur");
+      if (surchargeSwitchActive) {
+        if (btnLabel) btnLabel.textContent = "Arrêter Surcharge";
+        selectPosition(5);
+      } else {
+        if (btnLabel) btnLabel.textContent = "Interrupteur Surcharge";
+        selectPosition(6);
+      }
+    }
+
+    function triggerManipulateur(sens) {
+      if (sens === 'serrage') {
+        if (currentPosId === 2) selectPosition(7);
+        else if (currentPosId === 7) selectPosition(8);
+        else selectPosition(8);
+      } else {
+        if (currentPosId === 8 || currentPosId === 7) selectPosition(9);
+        else selectPosition(2);
+      }
+    }
+
+    function triggerUrgenceBP() {
+      selectPosition(12);
+    }
+
+    // SVG Component Tooltip Inspection
+    function showTooltipComp(key) {
+      const tip = document.getElementById("svg-tooltip");
+      if (!tip) return;
+      const desc = COMP_DESCRIPTIONS[key];
+      if (!desc) return;
+
+      tip.innerHTML = desc;
+      tip.style.display = "block";
+      tip.style.top = "60px";
+      tip.style.left = "480px";
+
+      setTimeout(() => {
+        tip.style.display = "none";
+      }, 6000);
+    }
+
+    // Initialize once DOM is ready
+    window.addEventListener("DOMContentLoaded", () => {
+      initSimulator();
+    });
+  </script>
+</body>
+</html>
